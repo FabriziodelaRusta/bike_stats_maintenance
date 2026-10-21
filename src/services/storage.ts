@@ -16,13 +16,13 @@ const LAST_AUTOBACKUP_KEY = 'velo_stats_last_autobackup_time';
 
 export function getInitialAppData(): AppDataPayload {
   return {
-    bikes: DEFAULT_BIKES,
+    bikes: [],
     componentCategories: DEFAULT_COMPONENT_CATEGORIES,
-    bikeComponentLinks: DEFAULT_BIKE_COMPONENTS,
-    expenses: DEFAULT_EXPENSES,
-    maintenanceLogs: DEFAULT_MAINTENANCE_LOGS,
+    bikeComponentLinks: [],
+    expenses: [],
+    maintenanceLogs: [],
     rideTypes: DEFAULT_RIDE_TYPES,
-    rides: DEFAULT_RIDES,
+    rides: [],
     settings: DEFAULT_PAGE_SETTINGS,
   };
 }
@@ -40,6 +40,19 @@ export function getBlankAppData(existingSettings?: PageSettings): AppDataPayload
   };
 }
 
+export function getDemoAppData(existingSettings?: PageSettings): AppDataPayload {
+  return {
+    bikes: DEFAULT_BIKES,
+    componentCategories: DEFAULT_COMPONENT_CATEGORIES,
+    bikeComponentLinks: DEFAULT_BIKE_COMPONENTS,
+    expenses: DEFAULT_EXPENSES,
+    maintenanceLogs: DEFAULT_MAINTENANCE_LOGS,
+    rideTypes: DEFAULT_RIDE_TYPES,
+    rides: DEFAULT_RIDES,
+    settings: existingSettings || DEFAULT_PAGE_SETTINGS,
+  };
+}
+
 export function loadStoredAppData(): AppDataPayload {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_DATA);
@@ -50,13 +63,13 @@ export function loadStoredAppData(): AppDataPayload {
     }
     const parsed = JSON.parse(raw) as Partial<AppDataPayload>;
     return {
-      bikes: parsed.bikes ?? DEFAULT_BIKES,
+      bikes: parsed.bikes ?? [],
       componentCategories: parsed.componentCategories ?? DEFAULT_COMPONENT_CATEGORIES,
-      bikeComponentLinks: parsed.bikeComponentLinks ?? DEFAULT_BIKE_COMPONENTS,
-      expenses: parsed.expenses ?? DEFAULT_EXPENSES,
-      maintenanceLogs: parsed.maintenanceLogs ?? DEFAULT_MAINTENANCE_LOGS,
+      bikeComponentLinks: parsed.bikeComponentLinks ?? [],
+      expenses: parsed.expenses ?? [],
+      maintenanceLogs: parsed.maintenanceLogs ?? [],
       rideTypes: parsed.rideTypes ?? DEFAULT_RIDE_TYPES,
-      rides: parsed.rides ?? DEFAULT_RIDES,
+      rides: parsed.rides ?? [],
       settings: { ...DEFAULT_PAGE_SETTINGS, ...(parsed.settings || {}) },
     };
   } catch (err) {

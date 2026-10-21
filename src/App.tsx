@@ -16,7 +16,8 @@ import {
   saveAppData, 
   checkAndPerformAutoBackup, 
   getInitialAppData,
-  getBlankAppData
+  getBlankAppData,
+  getDemoAppData
 } from './services/storage';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -104,10 +105,10 @@ export default function App() {
   };
 
   const handleResetData = () => {
-    if (window.confirm('Attention : réinitialiser rechargera toutes les données de démo d\'origine. Continuer ?')) {
-      const initial = getInitialAppData();
-      updateData(initial);
-      alert('Application réinitialisée avec les données d\'exemple.');
+    if (window.confirm('Voulez-vous charger le jeu complet de données de démonstration (Colnago, Canyon, randos démo) ?')) {
+      const demo = getDemoAppData(data.settings);
+      updateData(demo);
+      alert('Données de démonstration chargées avec succès.');
     }
   };
 
