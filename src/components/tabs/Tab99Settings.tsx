@@ -7,6 +7,7 @@ import {
   Download, 
   Upload, 
   Folder, 
+  FolderOpen,
   History, 
   Check, 
   AlertTriangle, 
@@ -34,6 +35,7 @@ interface Tab99SettingsProps {
   onUpdateSettings: (settings: PageSettings) => void;
   onRestoreData: (restoredData: AppDataPayload) => void;
   onResetData: () => void;
+  onClearToBlank?: () => void;
 }
 
 export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
@@ -42,6 +44,7 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
   onUpdateSettings,
   onRestoreData,
   onResetData,
+  onClearToBlank,
 }) => {
   const { settings } = data;
   const [localSettings, setLocalSettings] = useState<PageSettings>({ ...settings });
@@ -49,6 +52,86 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
   const [backups, setBackups] = useState<BackupRecord[]>(loadBackups());
   const [selectedBackupId, setSelectedBackupId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workingDirInputRef = useRef<HTMLInputElement>(null);
+  const backupDirInputRef = useRef<HTMLInputElement>(null);
+
+  // Directory Picker handler: opens native OS file manager
+  const handlePickDirectory = async (field: 'workingDataPath' | 'backupStoragePath') => {
+    // 1. Try modern File System Access API (showDirectoryPicker)
+    if ('showDirectoryPicker' in window) {
+      try {
+        const dirHandle = await (window as any).showDirectoryPicker({
+          id: field === 'workingDataPath' ? 'cyclisme-data-dir' : 'cyclisme-backups-dir',
+          startIn: 'documents', // Defaults to user's connected directory (Documents/Home)
+          mode: 'read',
+        });
+        if (dirHandle?.name) {
+          const folderName = dirHandle.name;
+          const isWindows = navigator.userAgent.toLowerCase().includes('windows');
+          const currentVal = localSettings[field] || '';
+
+          let proposedPath = '';
+          if (currentVal.includes('\\') || isWindows) {
+            proposedPath = `C:\\Users\\Documents\\${folderName}\\`;
+          } else {
+            proposedPath = `/home/utilisateur/Documents/${folderName}/`;
+          }
+
+          const confirmedPath = window.prompt(
+            `Dossier sélectionné via l'explorateur : "${folderName}".\nConfirmez ou ajustez le chemin d'accès complet :`,
+            proposedPath
+          );
+
+          if (confirmedPath) {
+            setLocalSettings((prev) => ({
+              ...prev,
+              [field]: confirmedPath.trim(),
+            }));
+          }
+          return;
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return; // User closed picker
+        console.warn('showDirectoryPicker was cancelled or unsupported, fallback to input', err);
+      }
+    }
+
+    // 2. Fallback to HTML directory file input
+    if (field === 'workingDataPath' && workingDirInputRef.current) {
+      workingDirInputRef.current.click();
+    } else if (field === 'backupStoragePath' && backupDirInputRef.current) {
+      backupDirInputRef.current.click();
+    }
+  };
+
+  const handleDirectoryInputFallback = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: 'workingDataPath' | 'backupStoragePath'
+  ) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const sampleFile = files[0];
+      const relPath = sampleFile.webkitRelativePath || sampleFile.name;
+      const folderName = relPath.split('/')[0] || relPath.split('\\')[0] || 'cyclisme';
+
+      const isWindows = navigator.userAgent.toLowerCase().includes('windows');
+      const proposedPath = isWindows
+        ? `C:\\Users\\Documents\\${folderName}\\`
+        : `/home/utilisateur/Documents/${folderName}/`;
+
+      const confirmedPath = window.prompt(
+        `Dossier sélectionné : "${folderName}".\nConfirmez ou ajustez le chemin d'accès complet :`,
+        proposedPath
+      );
+
+      if (confirmedPath) {
+        setLocalSettings((prev) => ({
+          ...prev,
+          [field]: confirmedPath.trim(),
+        }));
+      }
+    }
+  };
 
   // Handle saving configuration settings
   const handleSaveSettings = (e: React.FormEvent) => {
@@ -392,23 +475,57 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
             <span>3. Sauvegardes Locales, Fichiers & Backups</span>
           </h3>
 
+          {/* Hidden inputs for directory selection fallback */}
+          <input
+            type="file"
+            ref={workingDirInputRef}
+            onChange={(e) => handleDirectoryInputFallback(e, 'workingDataPath')}
+            {...({ webkitdirectory: '', directory: '' } as any)}
+            className="hidden"
+          />
+          <input
+            type="file"
+            ref={backupDirInputRef}
+            onChange={(e) => handleDirectoryInputFallback(e, 'backupStoragePath')}
+            {...({ webkitdirectory: '', directory: '' } as any)}
+            className="hidden"
+          />
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Dossier des fichiers utilisés (chemin complet)
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={localSettings.workingDataPath || ''}
-                  onChange={(e) => setLocalSettings({ ...localSettings, workingDataPath: e.target.value })}
-                  placeholder="Ex: /home/user/cyclisme/donnees/ ou C:\Velo\data\"
-                  className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-white"
-                />
-                <Folder className="w-4 h-4 text-emerald-600 absolute left-2.5 top-2.5" />
+              <div className="flex items-center gap-1.5">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={localSettings.workingDataPath || ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, workingDataPath: e.target.value })}
+                    placeholder="Ex: /home/user/cyclisme/donnees/ ou C:\Velo\data\"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handlePickDirectory('workingDataPath')}
+                    className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-md absolute left-1 top-1 transition-colors cursor-pointer"
+                    title="Cliquer sur l'icône pour ouvrir l'explorateur de fichiers"
+                  >
+                    <Folder className="w-4 h-4" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handlePickDirectory('workingDataPath')}
+                  className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+                  title="Ouvrir le gestionnaire de fichiers pour choisir ce répertoire"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Parcourir</span>
+                </button>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Chemin absolu où sont situés les fichiers de travail et données courantes.
+                Cliquez sur l'icône ou « Parcourir » pour ouvrir le gestionnaire de fichiers.
               </p>
             </div>
 
@@ -416,19 +533,85 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Dossier pour les sauvegardes / backups (chemin complet)
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={localSettings.backupStoragePath}
-                  onChange={(e) => setLocalSettings({ ...localSettings, backupStoragePath: e.target.value })}
-                  placeholder="Ex: /home/user/cyclisme/donnees/backups/ ou C:\Velo\backups\"
-                  className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-white"
-                />
-                <Folder className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
+              <div className="flex items-center gap-1.5">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={localSettings.backupStoragePath}
+                    onChange={(e) => setLocalSettings({ ...localSettings, backupStoragePath: e.target.value })}
+                    placeholder="Ex: /home/user/cyclisme/donnees/backups/ ou C:\Velo\backups\"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handlePickDirectory('backupStoragePath')}
+                    className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-md absolute left-1 top-1 transition-colors cursor-pointer"
+                    title="Cliquer sur l'icône pour ouvrir l'explorateur de fichiers"
+                  >
+                    <Folder className="w-4 h-4" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handlePickDirectory('backupStoragePath')}
+                  className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+                  title="Ouvrir le gestionnaire de fichiers pour choisir ce répertoire"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Parcourir</span>
+                </button>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Chemin absolu réservé à l'archivage des copies et rotations de sauvegardes.
+                Dossier où seront copiées les sauvegardes locales horodatées.
               </p>
+            </div>
+          </div>
+
+          {/* Quick presets for directory paths */}
+          <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700">
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-2">
+              Préréglages rapides pour changer les répertoires :
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setLocalSettings({
+                    ...localSettings,
+                    workingDataPath: 'C:\\Cyclisme\\Donnees\\',
+                    backupStoragePath: 'C:\\Cyclisme\\Backups\\',
+                  })
+                }
+                className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-emerald-50 hover:border-emerald-500 font-mono text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+              >
+                Windows (C:\Cyclisme\...)
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setLocalSettings({
+                    ...localSettings,
+                    workingDataPath: '/home/utilisateur/cyclisme/donnees/',
+                    backupStoragePath: '/home/utilisateur/cyclisme/backups/',
+                  })
+                }
+                className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-emerald-50 hover:border-emerald-500 font-mono text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+              >
+                Mac / Linux (/home/.../cyclisme/)
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setLocalSettings({
+                    ...localSettings,
+                    workingDataPath: './donnees/',
+                    backupStoragePath: './donnees/backups/',
+                  })
+                }
+                className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-emerald-50 hover:border-emerald-500 font-mono text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+              >
+                Dossier relatif (./donnees/)
+              </button>
             </div>
           </div>
 
@@ -571,6 +754,35 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
             )}
           </div>
 
+          {/* Explanation of data origin upon deployment */}
+          <div className="p-4 bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40 rounded-xl space-y-2">
+            <h4 className="text-xs font-bold text-blue-900 dark:text-blue-200 uppercase tracking-wider flex items-center gap-1.5">
+              <span>D'où viennent les données visibles au premier déploiement ?</span>
+            </h4>
+            <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
+              Lors du premier lancement, l'application est fournie avec des <strong>données d'exemple</strong> (Colnago, Canyon, Moustache AE, randos et dépenses démo) pour vous permettre de tester immédiatement les graphiques, le calendrier et les jauges d'usure.
+              <strong> GitHub ne stocke aucune base de données privée</strong> : toutes vos informations sont gérées localement dans la mémoire de votre navigateur (Local Storage) et dans vos fichiers de sauvegardes.
+            </p>
+            <div className="pt-2 flex flex-wrap gap-2">
+              {onClearToBlank && (
+                <button
+                  type="button"
+                  onClick={onClearToBlank}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
+                >
+                  Vider toutes les données (Démarrer à zéro avec mes vrais vélos)
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onResetData}
+                className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Recharger les données d'exemple (Démo)
+              </button>
+            </div>
+          </div>
+
           {/* Import / Export & Reset actions */}
           <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-700">
             <div className="flex flex-wrap items-center gap-2">
@@ -600,14 +812,16 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
               />
             </div>
 
-            <button
-              type="button"
-              onClick={onResetData}
-              className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 dark:text-rose-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-            >
-              <AlertTriangle className="w-4 h-4" />
-              <span>Réinitialiser avec les données par défaut</span>
-            </button>
+            {onClearToBlank && (
+              <button
+                type="button"
+                onClick={onClearToBlank}
+                className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 dark:text-amber-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Vider la base pour commencer à zéro</span>
+              </button>
+            )}
           </div>
         </div>
 

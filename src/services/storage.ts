@@ -27,6 +27,19 @@ export function getInitialAppData(): AppDataPayload {
   };
 }
 
+export function getBlankAppData(existingSettings?: PageSettings): AppDataPayload {
+  return {
+    bikes: [],
+    componentCategories: DEFAULT_COMPONENT_CATEGORIES,
+    bikeComponentLinks: [],
+    expenses: [],
+    maintenanceLogs: [],
+    rideTypes: DEFAULT_RIDE_TYPES,
+    rides: [],
+    settings: existingSettings || DEFAULT_PAGE_SETTINGS,
+  };
+}
+
 export function loadStoredAppData(): AppDataPayload {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_DATA);

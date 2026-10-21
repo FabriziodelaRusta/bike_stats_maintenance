@@ -15,7 +15,8 @@ import {
   loadStoredAppData, 
   saveAppData, 
   checkAndPerformAutoBackup, 
-  getInitialAppData 
+  getInitialAppData,
+  getBlankAppData
 } from './services/storage';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -106,7 +107,15 @@ export default function App() {
     if (window.confirm('Attention : réinitialiser rechargera toutes les données de démo d\'origine. Continuer ?')) {
       const initial = getInitialAppData();
       updateData(initial);
-      alert('Application réinitialisée avec succès.');
+      alert('Application réinitialisée avec les données d\'exemple.');
+    }
+  };
+
+  const handleClearToBlank = () => {
+    if (window.confirm('Voulez-vous vider toutes les données pour démarrer à zéro (0 vélo, 0 rando) avec vos propres données ?')) {
+      const blank = getBlankAppData(data.settings);
+      updateData(blank);
+      alert('Base de données vidée avec succès. Vous commencez à zéro !');
     }
   };
 
@@ -192,6 +201,7 @@ export default function App() {
               onUpdateSettings={handleUpdateSettings}
               onRestoreData={handleRestoreData}
               onResetData={handleResetData}
+              onClearToBlank={handleClearToBlank}
             />
           )}
         </main>
