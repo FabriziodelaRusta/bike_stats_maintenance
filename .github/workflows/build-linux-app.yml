@@ -31,7 +31,9 @@ jobs:
         run: npm run build
 
       - name: Compilation du binaire Linux avec electron-builder
-        run: npx electron-builder --linux AppImage deb
+        run: npx electron-builder --linux AppImage deb --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publication de l'application Linux en tant qu'artefact
         uses: actions/upload-artifact@v4
