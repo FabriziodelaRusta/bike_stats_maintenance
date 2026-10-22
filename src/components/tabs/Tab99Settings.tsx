@@ -18,7 +18,8 @@ import {
   Type, 
   Image as ImageIcon, 
   Sparkles, 
-  CheckCircle2 
+  CheckCircle2,
+  Monitor 
 } from 'lucide-react';
 import { 
   createBackupRecord, 
@@ -544,6 +545,33 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
               </div>
             </div>
           )}
+
+          {/* Instructions pour l'application de Bureau Linux */}
+          <div className="p-3.5 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border border-emerald-300 dark:border-emerald-700 rounded-xl space-y-2">
+            <div className="flex flex-col gap-2">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Monitor className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Application de Bureau Linux (Exécutable autonome .AppImage & .deb)</span>
+              </h4>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                L'application dispose d'un mode Bureau natif Linux avec écriture directe sur votre disque dur. Vous avez deux options simples pour l'obtenir :
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-slate-700 dark:text-slate-300">
+                <div className="p-2.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 space-y-1">
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400">Option 1 : Génération locale instantanée (Zéro téléchargement)</span>
+                  <p className="text-slate-500 text-[10px]">Dans le dossier du projet sur votre Linux :</p>
+                  <code className="block p-1 bg-slate-100 dark:bg-slate-900 rounded font-mono text-[10px] text-emerald-800 dark:text-emerald-300">
+                    npm run electron:build
+                  </code>
+                  <p className="text-[10px] text-slate-500">L'exécutable .AppImage est créé directement dans votre dossier <code className="font-mono">release/</code>.</p>
+                </div>
+                <div className="p-2.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 space-y-1">
+                  <span className="font-bold text-blue-700 dark:text-blue-400">Option 2 : Télécharger depuis GitHub</span>
+                  <p className="text-slate-500 text-[10px]">Sur GitHub, onglet <strong>Actions</strong> &gt; dernier build &gt; section <strong>Artifacts</strong> tout en bas de page pour télécharger l'archive zip.</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Configuration du répertoire de base (entrée manuelle libre, ou repli sur ~/ si vide) */}
           <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5">

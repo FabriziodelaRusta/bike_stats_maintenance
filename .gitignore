@@ -1,8 +1,14 @@
 node_modules/
 build/
 dist/
+release/
+*.AppImage
+*.deb
+public/downloads/
+dist/downloads/
 coverage/
 .DS_Store
 *.log
+.aistudio/
 .env*
 !.env.example

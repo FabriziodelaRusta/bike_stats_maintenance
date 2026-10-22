@@ -7,6 +7,7 @@
     "name": "FabriziodelaRusta",
     "email": "mezitineraires@gmail.com"
   },
+  "homepage": "https://github.com/FabriziodelaRusta/bike_stats_maintenance",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
