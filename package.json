@@ -1,7 +1,12 @@
 {
-  "name": "react-example",
+  "name": "bike-stats-maintenance",
   "private": true,
   "version": "1.0.0",
+  "description": "Application de statistiques, gestion et maintenance de vélos",
+  "author": {
+    "name": "FabriziodelaRusta",
+    "email": "mezitineraires@gmail.com"
+  },
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -55,6 +60,7 @@
         "AppImage",
         "deb"
       ],
+      "maintainer": "FabriziodelaRusta <mezitineraires@gmail.com>",
       "category": "Utility"
     }
   }
