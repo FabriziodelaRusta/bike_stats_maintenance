@@ -92,6 +92,29 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
 
   // Directory Picker handler: opens native OS file manager
   const handlePickDirectory = async (field: 'workingDataPath' | 'backupStoragePath') => {
+    // 0. If running in Linux Electron Desktop App, use native OS file manager dialog directly!
+    if (window.electronAPI?.pickDirectory) {
+      try {
+        const defaultPath = (localSettings[field] || localSettings.userHomePrefix || '').trim();
+        const selected = await window.electronAPI.pickDirectory(defaultPath);
+        if (selected) {
+          const isWin = selected.includes('\\');
+          const finalPath = selected.endsWith('/') || selected.endsWith('\\') ? selected : `${selected}${isWin ? '\\' : '/'}`;
+          const updated = {
+            ...localSettings,
+            [field]: finalPath,
+          };
+          setLocalSettings(updated);
+          onUpdateSettings(updated);
+          setDirectoryNotice(`Dossier sélectionné : ${finalPath}`);
+          setTimeout(() => setDirectoryNotice(null), 5000);
+          return;
+        }
+      } catch (err) {
+        console.warn('Electron pickDirectory failed:', err);
+      }
+    }
+
     let isCrossDomainIframe = false;
     try {
       isCrossDomainIframe = window.self !== window.top;
@@ -510,6 +533,17 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
             {...({ webkitdirectory: '', directory: '' } as any)}
             className="hidden"
           />
+
+          {typeof window !== 'undefined' && window.electronAPI && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl text-xs text-emerald-800 dark:text-emerald-200 flex items-center justify-between gap-3 font-medium">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                <span>
+                  <strong>Application Bureau Linux active :</strong> Vos modifications et sauvegardes sont écrites directement sur votre disque dur physique.
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Configuration du répertoire de base (entrée manuelle libre, ou repli sur ~/ si vide) */}
           <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5">

@@ -1,0 +1,43 @@
+name: Compilation Application Linux (AppImage & deb)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux-app:
+    name: Build Linux AppImage & deb
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupération du code source
+        uses: actions/checkout@v4
+
+      - name: Configuration de Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Installation des dépendances
+        run: npm install
+
+      - name: Compilation frontend Vite
+        run: npm run build
+
+      - name: Compilation du binaire Linux avec electron-builder
+        run: npx electron-builder --linux AppImage deb
+
+      - name: Publication de l'application Linux en tant qu'artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: application-linux-velo-stats
+          path: |
+            release/*.AppImage
+            release/*.deb
+          if-no-files-found: error

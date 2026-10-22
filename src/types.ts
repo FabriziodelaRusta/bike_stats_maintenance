@@ -154,3 +154,20 @@ export interface AppDataPayload {
   rides: Ride[];
   settings: PageSettings;
 }
+
+declare global {
+  interface Window {
+    electronAPI?: {
+      isElectron: boolean;
+      getHomeDir: () => Promise<string>;
+      pickDirectory: (defaultPath?: string) => Promise<string | null>;
+      saveData: (filePath: string, data: any) => Promise<{ success: boolean; path?: string; error?: string }>;
+      loadData: (filePath: string) => Promise<{ success: boolean; data?: any; path?: string; error?: string }>;
+      createBackup: (
+        backupDir: string,
+        data: any
+      ) => Promise<{ success: boolean; filename?: string; path?: string; sizeBytes?: number; error?: string; timestamp?: string }>;
+      listBackups: (backupDir: string) => Promise<{ success: boolean; backups: any[]; error?: string }>;
+    };
+  }
+}

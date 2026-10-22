@@ -91,6 +91,17 @@ export function saveAppData(data: AppDataPayload): void {
   } catch (err) {
     console.error('Failed to save data to localStorage', err);
   }
+
+  // Physical disk persistence when running inside Electron Linux Desktop App
+  if (typeof window !== 'undefined' && window.electronAPI?.saveData) {
+    const basePath = (data.settings.workingDataPath || '').trim() || '~/';
+    const cleanBase = basePath.replace(/[/\\]+$/, '');
+    const isWin = cleanBase.includes('\\');
+    const targetFile = isWin ? `${cleanBase}\\velo_stats_data.json` : `${cleanBase}/velo_stats_data.json`;
+    window.electronAPI.saveData(targetFile, data).catch((e) => {
+      console.warn('Physical disk write warning:', e);
+    });
+  }
 }
 
 export function loadBackups(): BackupRecord[] {
@@ -155,6 +166,14 @@ export function createBackupRecord(
   const maxKeep = Math.max(1, data.settings.maxBackupsToKeep || 10);
   const updatedBackups = [backup, ...existingBackups].slice(0, maxKeep);
   saveBackups(updatedBackups);
+
+  // Physical disk backup creation when running inside Electron Linux Desktop App
+  if (typeof window !== 'undefined' && window.electronAPI?.createBackup) {
+    const backupDir = (data.settings.backupStoragePath || '').trim() || '~/backups/';
+    window.electronAPI.createBackup(backupDir, data).catch((e) => {
+      console.warn('Physical disk backup write warning:', e);
+    });
+  }
 
   return backup;
 }
