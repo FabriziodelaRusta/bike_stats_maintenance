@@ -459,8 +459,9 @@ export const DEFAULT_PAGE_SETTINGS: PageSettings = {
   pageIconUrl: '',
   faviconUrl: '',
   tabOrder: ['tab-1', 'tab-2', 'tab-3', 'tab-4', 'tab-5', 'tab-6', 'tab-99'],
-  workingDataPath: '/home/user/cyclisme/donnees/',
-  backupStoragePath: '/home/user/cyclisme/donnees/backups/',
+  userHomePrefix: '/home/sabine/Documents/Voyages - Randonnées/Vélo/Stats_Maintenance',
+  workingDataPath: '/home/sabine/Documents/Voyages - Randonnées/Vélo/Stats_Maintenance/',
+  backupStoragePath: '/home/sabine/Documents/Voyages - Randonnées/Vélo/Stats_Maintenance/backups/',
   autoBackupOnLoad: true,
   maxBackupsToKeep: 10,
   footerSettings: {

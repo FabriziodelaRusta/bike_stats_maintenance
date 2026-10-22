@@ -2,7 +2,5 @@
   "name": "Stats & Maintenance Vélo",
   "description": "Gestion complète et maintenance de vélos, suivi des sorties et randos, statistiques calendaires, suivi des dépenses et sauvegardes locales.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

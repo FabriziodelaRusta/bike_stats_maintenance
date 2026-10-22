@@ -49,57 +49,79 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
   const { settings } = data;
   const [localSettings, setLocalSettings] = useState<PageSettings>({ ...settings });
   const [savedNotice, setSavedNotice] = useState(false);
+  const [directoryNotice, setDirectoryNotice] = useState<string | null>(null);
   const [backups, setBackups] = useState<BackupRecord[]>(loadBackups());
   const [selectedBackupId, setSelectedBackupId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workingDirInputRef = useRef<HTMLInputElement>(null);
   const backupDirInputRef = useRef<HTMLInputElement>(null);
 
+  // Directly apply picked directory path and update settings in real time
+  const applySelectedDirectory = (folderName: string, field: 'workingDataPath' | 'backupStoragePath') => {
+    if (!folderName) return;
+    const cleanFolder = folderName.replace(/^[/\\]+/, '').replace(/[/\\]+$/, '');
+
+    // Get the base directory manually entered by the user. If empty, fallback to ~/
+    let homePrefix = (localSettings.userHomePrefix || '').trim();
+    if (!homePrefix) {
+      homePrefix = '~/';
+    }
+
+    const isWindows = homePrefix.includes('\\');
+    let fullPath = '';
+    if (isWindows) {
+      const normalizedPrefix = homePrefix.replace(/\\+$/, '');
+      fullPath = `${normalizedPrefix}\\${cleanFolder}\\`;
+    } else {
+      const normalizedPrefix = homePrefix.replace(/\/+$/, '');
+      fullPath = `${normalizedPrefix}/${cleanFolder}/`;
+    }
+
+    setLocalSettings((prev) => {
+      const updated = {
+        ...prev,
+        [field]: fullPath,
+      };
+      onUpdateSettings(updated);
+      return updated;
+    });
+
+    setDirectoryNotice(`Dossier sélectionné : ${fullPath}`);
+    setTimeout(() => setDirectoryNotice(null), 5000);
+  };
+
   // Directory Picker handler: opens native OS file manager
   const handlePickDirectory = async (field: 'workingDataPath' | 'backupStoragePath') => {
-    // 1. Try modern File System Access API (showDirectoryPicker)
-    if ('showDirectoryPicker' in window) {
+    let isCrossDomainIframe = false;
+    try {
+      isCrossDomainIframe = window.self !== window.top;
+    } catch {
+      isCrossDomainIframe = true;
+    }
+
+    // 1. If not in a cross-origin iframe and showDirectoryPicker is supported, try it directly
+    if (!isCrossDomainIframe && typeof (window as any).showDirectoryPicker === 'function') {
       try {
         const dirHandle = await (window as any).showDirectoryPicker({
-          id: field === 'workingDataPath' ? 'cyclisme-data-dir' : 'cyclisme-backups-dir',
-          startIn: 'documents', // Defaults to user's connected directory (Documents/Home)
+          startIn: 'documents',
           mode: 'read',
         });
         if (dirHandle?.name) {
-          const folderName = dirHandle.name;
-          const isWindows = navigator.userAgent.toLowerCase().includes('windows');
-          const currentVal = localSettings[field] || '';
-
-          let proposedPath = '';
-          if (currentVal.includes('\\') || isWindows) {
-            proposedPath = `C:\\Users\\Documents\\${folderName}\\`;
-          } else {
-            proposedPath = `/home/utilisateur/Documents/${folderName}/`;
-          }
-
-          const confirmedPath = window.prompt(
-            `Dossier sélectionné via l'explorateur : "${folderName}".\nConfirmez ou ajustez le chemin d'accès complet :`,
-            proposedPath
-          );
-
-          if (confirmedPath) {
-            setLocalSettings((prev) => ({
-              ...prev,
-              [field]: confirmedPath.trim(),
-            }));
-          }
+          applySelectedDirectory(dirHandle.name, field);
           return;
         }
       } catch (err: any) {
-        if (err.name === 'AbortError') return; // User closed picker
-        console.warn('showDirectoryPicker was cancelled or unsupported, fallback to input', err);
+        if (err.name === 'AbortError') return;
+        console.warn('showDirectoryPicker failed, falling back to input', err);
       }
     }
 
-    // 2. Fallback to HTML directory file input
+    // 2. Direct synchronous trigger using hidden directory input to preserve user activation
     if (field === 'workingDataPath' && workingDirInputRef.current) {
+      workingDirInputRef.current.value = '';
       workingDirInputRef.current.click();
     } else if (field === 'backupStoragePath' && backupDirInputRef.current) {
+      backupDirInputRef.current.value = '';
       backupDirInputRef.current.click();
     }
   };
@@ -109,28 +131,19 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
     field: 'workingDataPath' | 'backupStoragePath'
   ) => {
     const files = e.target.files;
-    if (files && files.length > 0) {
-      const sampleFile = files[0];
-      const relPath = sampleFile.webkitRelativePath || sampleFile.name;
-      const folderName = relPath.split('/')[0] || relPath.split('\\')[0] || 'cyclisme';
+    if (!files || files.length === 0) return;
 
-      const isWindows = navigator.userAgent.toLowerCase().includes('windows');
-      const proposedPath = isWindows
-        ? `C:\\Users\\Documents\\${folderName}\\`
-        : `/home/utilisateur/Documents/${folderName}/`;
-
-      const confirmedPath = window.prompt(
-        `Dossier sélectionné : "${folderName}".\nConfirmez ou ajustez le chemin d'accès complet :`,
-        proposedPath
-      );
-
-      if (confirmedPath) {
-        setLocalSettings((prev) => ({
-          ...prev,
-          [field]: confirmedPath.trim(),
-        }));
-      }
+    let folderName = '';
+    const sampleFile = files[0];
+    if (sampleFile.webkitRelativePath) {
+      folderName = sampleFile.webkitRelativePath.split('/')[0] || sampleFile.webkitRelativePath.split('\\')[0];
+    } else {
+      folderName = sampleFile.name.replace(/\.[^/.]+$/, '');
     }
+
+    if (!folderName) folderName = 'Cyclisme';
+    applySelectedDirectory(folderName, field);
+    e.target.value = '';
   };
 
   // Handle saving configuration settings
@@ -475,6 +488,13 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
             <span>3. Sauvegardes Locales, Fichiers & Backups</span>
           </h3>
 
+          {directoryNotice && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2 font-medium">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{directoryNotice}</span>
+            </div>
+          )}
+
           {/* Hidden inputs for directory selection fallback */}
           <input
             type="file"
@@ -491,6 +511,98 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
             className="hidden"
           />
 
+          {/* Configuration du répertoire de base (entrée manuelle libre, ou repli sur ~/ si vide) */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Répertoire de base (saisie manuelle libre)
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  Entrez votre chemin de base. Si ce champ est vide, le répertoire par défaut (<code className="px-1 bg-slate-200 dark:bg-slate-800 rounded font-mono font-bold">~/</code>) est automatiquement utilisé.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = '/home/sabine/Documents/Voyages - Randonnées/Vélo/Stats_Maintenance';
+                    const updated = {
+                      ...localSettings,
+                      userHomePrefix: p,
+                      workingDataPath: `${p}/`,
+                      backupStoragePath: `${p}/backups/`,
+                    };
+                    setLocalSettings(updated);
+                    onUpdateSettings(updated);
+                  }}
+                  className="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded hover:bg-emerald-50 text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer"
+                  title="Appliquer l'exemple de chemin complet"
+                >
+                  Exemple : /home/sabine/.../Stats_Maintenance
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updated = {
+                      ...localSettings,
+                      userHomePrefix: '',
+                      workingDataPath: '~/',
+                      backupStoragePath: '~/backups/',
+                    };
+                    setLocalSettings(updated);
+                    onUpdateSettings(updated);
+                  }}
+                  className="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded hover:bg-slate-100 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                  title="Réinitialiser au répertoire par défaut (~/)"
+                >
+                  Par défaut (~/)
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch gap-2">
+              <input
+                type="text"
+                value={localSettings.userHomePrefix ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const updated = { ...localSettings, userHomePrefix: val };
+                  setLocalSettings(updated);
+                  onUpdateSettings(updated);
+                }}
+                placeholder="Ex: /home/sabine/Documents/Voyages - Randonnées/Vélo/Stats_Maintenance (ou laisser vide pour ~/)"
+                className="flex-1 px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const base = (localSettings.userHomePrefix || '').trim() || '~/';
+                  const clean = base.replace(/[/\\]+$/, '');
+                  const isWin = clean.includes('\\');
+                  const updated = {
+                    ...localSettings,
+                    workingDataPath: isWin ? `${clean}\\` : `${clean}/`,
+                    backupStoragePath: isWin ? `${clean}\\backups\\` : `${clean}/backups/`,
+                  };
+                  setLocalSettings(updated);
+                  onUpdateSettings(updated);
+                  setDirectoryNotice(`Chemins mis à jour vers : ${updated.workingDataPath}`);
+                  setTimeout(() => setDirectoryNotice(null), 4000);
+                }}
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+              >
+                Appliquer aux dossiers ci-dessous
+              </button>
+            </div>
+
+            {!(localSettings.userHomePrefix || '').trim() && (
+              <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                ℹ️ Répertoire par défaut actif : <code className="font-mono bg-blue-100 dark:bg-blue-900/40 px-1 py-0.5 rounded">~/</code> sur Linux.
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -502,7 +614,7 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
                     type="text"
                     value={localSettings.workingDataPath || ''}
                     onChange={(e) => setLocalSettings({ ...localSettings, workingDataPath: e.target.value })}
-                    placeholder="Ex: /home/user/cyclisme/donnees/ ou C:\Velo\data\"
+                    placeholder="Ex: /home/sabine/Téléchargements/ ou C:\Velo\data\"
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-white"
                   />
                   <button
@@ -524,9 +636,45 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
                   <span>Parcourir</span>
                 </button>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Cliquez sur l'icône ou « Parcourir » pour ouvrir le gestionnaire de fichiers.
-              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                <span className="text-[10px] text-slate-500 self-center">Raccourcis :</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prefix = localSettings.userHomePrefix || '/home/sabine';
+                    const p = `${prefix.replace(/\/+$/, '')}/Téléchargements/`;
+                    setLocalSettings({ ...localSettings, workingDataPath: p });
+                    onUpdateSettings({ ...localSettings, workingDataPath: p });
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900 font-mono cursor-pointer"
+                >
+                  Téléchargements
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prefix = localSettings.userHomePrefix || '/home/sabine';
+                    const p = `${prefix.replace(/\/+$/, '')}/Documents/`;
+                    setLocalSettings({ ...localSettings, workingDataPath: p });
+                    onUpdateSettings({ ...localSettings, workingDataPath: p });
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900 font-mono cursor-pointer"
+                >
+                  Documents
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prefix = localSettings.userHomePrefix || '/home/sabine';
+                    const p = `${prefix.replace(/\/+$/, '')}/cyclisme/donnees/`;
+                    setLocalSettings({ ...localSettings, workingDataPath: p });
+                    onUpdateSettings({ ...localSettings, workingDataPath: p });
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900 font-mono cursor-pointer"
+                >
+                  cyclisme/donnees
+                </button>
+              </div>
             </div>
 
             <div>
@@ -539,7 +687,7 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
                     type="text"
                     value={localSettings.backupStoragePath}
                     onChange={(e) => setLocalSettings({ ...localSettings, backupStoragePath: e.target.value })}
-                    placeholder="Ex: /home/user/cyclisme/donnees/backups/ ou C:\Velo\backups\"
+                    placeholder="Ex: /home/sabine/Téléchargements/backups/ ou C:\Velo\backups\"
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-white"
                   />
                   <button
@@ -561,9 +709,45 @@ export const Tab99Settings: React.FC<Tab99SettingsProps> = ({
                   <span>Parcourir</span>
                 </button>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Dossier où seront copiées les sauvegardes locales horodatées.
-              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                <span className="text-[10px] text-slate-500 self-center">Raccourcis :</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prefix = localSettings.userHomePrefix || '/home/sabine';
+                    const p = `${prefix.replace(/\/+$/, '')}/Téléchargements/backups/`;
+                    setLocalSettings({ ...localSettings, backupStoragePath: p });
+                    onUpdateSettings({ ...localSettings, backupStoragePath: p });
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded hover:bg-blue-100 dark:hover:bg-blue-900 font-mono cursor-pointer"
+                >
+                  Téléchargements/backups
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prefix = localSettings.userHomePrefix || '/home/sabine';
+                    const p = `${prefix.replace(/\/+$/, '')}/backups/`;
+                    setLocalSettings({ ...localSettings, backupStoragePath: p });
+                    onUpdateSettings({ ...localSettings, backupStoragePath: p });
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded hover:bg-blue-100 dark:hover:bg-blue-900 font-mono cursor-pointer"
+                >
+                  backups
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prefix = localSettings.userHomePrefix || '/home/sabine';
+                    const p = `${prefix.replace(/\/+$/, '')}/cyclisme/donnees/backups/`;
+                    setLocalSettings({ ...localSettings, backupStoragePath: p });
+                    onUpdateSettings({ ...localSettings, backupStoragePath: p });
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded hover:bg-blue-100 dark:hover:bg-blue-900 font-mono cursor-pointer"
+                >
+                  cyclisme/donnees/backups
+                </button>
+              </div>
             </div>
           </div>
 

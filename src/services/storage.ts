@@ -62,6 +62,13 @@ export function loadStoredAppData(): AppDataPayload {
       return initial;
     }
     const parsed = JSON.parse(raw) as Partial<AppDataPayload>;
+    const loadedSettings = { ...DEFAULT_PAGE_SETTINGS, ...(parsed.settings || {}) };
+    if (!loadedSettings.workingDataPath) {
+      loadedSettings.workingDataPath = loadedSettings.userHomePrefix ? `${loadedSettings.userHomePrefix.replace(/\/+$/, '')}/` : '~/';
+    }
+    if (!loadedSettings.backupStoragePath) {
+      loadedSettings.backupStoragePath = loadedSettings.userHomePrefix ? `${loadedSettings.userHomePrefix.replace(/\/+$/, '')}/backups/` : '~/backups/';
+    }
     return {
       bikes: parsed.bikes ?? [],
       componentCategories: parsed.componentCategories ?? DEFAULT_COMPONENT_CATEGORIES,
@@ -70,7 +77,7 @@ export function loadStoredAppData(): AppDataPayload {
       maintenanceLogs: parsed.maintenanceLogs ?? [],
       rideTypes: parsed.rideTypes ?? DEFAULT_RIDE_TYPES,
       rides: parsed.rides ?? [],
-      settings: { ...DEFAULT_PAGE_SETTINGS, ...(parsed.settings || {}) },
+      settings: loadedSettings,
     };
   } catch (err) {
     console.error('Failed to load data from storage, fallback to defaults', err);

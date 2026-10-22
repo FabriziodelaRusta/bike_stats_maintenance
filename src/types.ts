@@ -112,6 +112,7 @@ export interface PageSettings {
   pageIconUrl: string;
   faviconUrl: string;
   tabOrder: string[]; // List of tab IDs
+  userHomePrefix?: string; // Répertoire personnel utilisateur (ex: /home/sabine ou C:\Users\sabine)
   workingDataPath: string; // Dossier chemin complet pour les fichiers utilisés
   backupStoragePath: string; // Dossier chemin complet pour les sauvegardes
   autoBackupOnLoad: boolean;

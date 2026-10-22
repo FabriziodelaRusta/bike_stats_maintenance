@@ -101,7 +101,17 @@ export default function App() {
   };
 
   const handleRestoreData = (restoredData: AppDataPayload) => {
-    updateData(restoredData);
+    const sanitized: AppDataPayload = {
+      bikes: Array.isArray(restoredData.bikes) ? restoredData.bikes : [],
+      componentCategories: Array.isArray(restoredData.componentCategories) ? restoredData.componentCategories : data.componentCategories,
+      bikeComponentLinks: Array.isArray(restoredData.bikeComponentLinks) ? restoredData.bikeComponentLinks : [],
+      expenses: Array.isArray(restoredData.expenses) ? restoredData.expenses : [],
+      maintenanceLogs: Array.isArray(restoredData.maintenanceLogs) ? restoredData.maintenanceLogs : [],
+      rideTypes: Array.isArray(restoredData.rideTypes) ? restoredData.rideTypes : data.rideTypes,
+      rides: Array.isArray(restoredData.rides) ? restoredData.rides : [],
+      settings: restoredData.settings ? { ...data.settings, ...restoredData.settings } : data.settings,
+    };
+    updateData(sanitized);
   };
 
   const handleResetData = () => {
